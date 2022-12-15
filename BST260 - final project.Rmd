@@ -1,0 +1,114 @@
+---
+title: "BST260 - Final project"
+output: pdf_document
+author: \textcolor{answercolor}{Sabine Friedrich}
+date:  12/15/2022
+header-includes: \definecolor{answercolor}{rgb}{0.27,0.51,0.71}
+---
+
+BST260 - Final project
+
+
+I will build two predictive models whose performance I will compare: 
+1. a prediction model based on clinical reasoning using logistic regression with a step-wise forward selection to refine the prediction model
+2. a machine learning model
+
+# Introduction
+
+The dataset that I will analyze was assembled by Korean investigators for a cross-sectional retrospective research study aiming to evaluate accuracy of triage in the emergency department by the Korean Triage and Acuity Scale. The original study report was published in 2019 (1) and the dataset was made available on kaggle.com where I encountered the dataset. 
+This is a tidy dataset including 1267 records of adult patients who were admitted to the emergency department (ED) at two different hospitals between October 2016 and September 2017. It includes a variable detailing the disposition of each patient upon discharge from the ED. Some patients may require emergency surgery and they will go from the ED straight to the operating theatre. For these patients, duration from admission to ED to start of the surgery may be crucial in influencing the risk of adverse outcomes. In some cases, minutes could be a decisive factor if a patient lives or dies. If we were able to identify these critical patients who require emergency surgery as early as possible, lives could potentially be saved. Early identification of these patient would allow for early alert of necessary providers such as anesthesia, surgeons and operating room staff and would allow to save time by getting necessary ressources ready early on such as allocation and preparation of the OR, blood products etc. 
+Therefore, the aim of this project was to identify predictors of requirement of emergency surgery among patients admitted to the ED. 
+
+- 1-2 key plots illustrating your exploratory data analysis
+
+To identify predictors and build a prediction model, one common approach is to preselect candidate predictors based on clinical reasoning and expertise and then use an automated selection process to build and refine a regression model. Another approach is to apply machine learning techniques. I will apply both approaches and compare the performance of the two resulting models. 
+First, I will split the dataset: 80% of observations will be used to train both models (training dataset) and the remaining 20% will serve as a validation set.
+Emergency surgery is a binary outcome. Model discrimination will be evaluated using AUC, sensitivity and specificity and a calibration plot comparing predicted probability and observed rates across deciles of predicted risk.
+
+# Results
+- 6+ key plots or tables illustrating your two major analyses 
+guide the reader through your analysis and describe what each plot or table is showing, and how it relates to the central question you are trying to ask
+
+
+# Conclusion
+Summary of your question, methods and results
+Additional topics can include:
+Was your analysis successful? Why or why not?
+What would you do if you had more time?
+
+
+# References
+## Data source: https://www.kaggle.com/datasets/ilkeryildiz/emergency-service-triage-application
+## Original analysis: https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0216972
+
+
+# Appendix
+## Figures
+
+##Tables
+
+## Code
+
+
+```{r 0, message=F}
+# Install & load packages
+if (!require(sas7bdat)){install.packages("sas7bdat")}
+if (!require(pROC)){install.packages("pROC")}
+```  
+
+
+
+```{r 0a}
+hw2.train <- read.sas7bdat("epi215_lab1_train.sas7bdat", debug=F)
+hw2.train$BMI <- (hw2.train$WEIGHT/100)/((hw2.train$HEIGHT/100)**2)
+```
+
+
+```{r 0b}
+hw2.train$flagmiss <- ifelse(rowSums(is.na(hw2.train[c("SMOKR","EMPHYS","HDL","AGE",
+                                                       "BMI","PULSE","sbp")]))==0, 0, 1)
+addmargins(table(hw2.train$flagmiss, hw2.train$DIAB))
+# -> 122 complete cases with T2DM and 3860 complete cases without T2DM
+table(hw2.train$DIAB)
+# 177 with and 4955 without T2DM, out of 5132
+table(hw2.train$flagmiss)
+#3982 complete cases, 1150 with missing for specified variables
+```
+
+
+```{r 1}
+#includes those with missing data -> # 177 with and 4955 without T2DM, out of 5132 (observed)
+m1 <- glm(DIAB ~ 1, data=hw2.train, family="binomial"); summary(m1)
+addmargins(table(hw2.train$DIAB))
+```
+
+
+\textcolor{answercolor}{ 
+$$\hat{p} = \frac{e^{\hat{\beta_0} + \hat{\beta_1} x}}{1 + e^{\hat{\beta_0} + \hat{\beta_1} x}}$$
+For the intercept only logistic model: ${\hat{\beta_0}}= -3.33$ and therefore the calculated probability of having diabetes: $\hat{p} = \frac{e^{\hat{\beta_0}}} {1 + e^{\hat{\beta_0} } } =  0.034489568$}
+
+
+\textcolor{answercolor}{177/5132 = 0.03448948 (3.45\%) - yes, this equals the calculated probability based on the intercept only model}
+
+
+```{r 2}
+#regression model m2
+m2 <- glm(DIAB ~ AGE + SMOKR + BMI, family="binomial", data=hw2.train)
+summary(m2)
+#calculating predicted probabilities based on m2
+hw2.train$p_s <- predict(m2, type="response", newdata=hw2.train)
+summary(hw2.train$p_s)
+
+```
+
+
+
+|     Model                  |     Sensitivity    |     FPF       |
+|----------------------------|--------------------|---------------|
+|     Simple (5% FPF)        |       0.1885       |     0.05      |
+|     Clinical (5% FPF)      |       0.2377       |     0.05      |
+|                            |                    |               |
+|     Simple (3% FPF)        |       0.1148       |     0.03      |
+|     Clinical (3% FPF)      |       0.1885       |     0.03      |
+
+
