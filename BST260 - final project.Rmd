@@ -18,12 +18,14 @@ I will build two predictive models whose performance I will compare:
 The dataset that I will analyze was assembled by Korean investigators for a cross-sectional retrospective research study aiming to evaluate accuracy of triage in the emergency department by the Korean Triage and Acuity Scale. The original study report was published in 2019 (1) and the dataset was made available on kaggle.com where I encountered the dataset. 
 This is a tidy dataset including 1267 records of adult patients who were admitted to the emergency department (ED) at two different hospitals between October 2016 and September 2017. It includes a variable detailing the disposition of each patient upon discharge from the ED. Some patients may require emergency surgery and they will go from the ED straight to the operating theatre. For these patients, duration from admission to ED to start of the surgery may be crucial in influencing the risk of adverse outcomes. In some cases, minutes could be a decisive factor if a patient lives or dies. If we were able to identify these critical patients who require emergency surgery as early as possible, lives could potentially be saved. Early identification of these patient would allow for early alert of necessary providers such as anesthesia, surgeons and operating room staff and would allow to save time by getting necessary ressources ready early on such as allocation and preparation of the OR, blood products etc. 
 Therefore, the aim of this project was to identify predictors of requirement of emergency surgery among patients admitted to the ED. 
-
-- 1-2 key plots illustrating your exploratory data analysis
+The dataset includes information on the following potential predictors: age and sex of the patient, how the patient got to the hospital, if the patient has an injury, the chief complaint, patient's mental state, if the patient had pain and pain rating on numerical rating scale (NRS), measurements of blood pressure, heart rate, respiratory rate and body temeprature, diagnosis, nurses triage rating, length of stay in the ED.
 
 To identify predictors and build a prediction model, one common approach is to preselect candidate predictors based on clinical reasoning and expertise and then use an automated selection process to build and refine a regression model. Another approach is to apply machine learning techniques. I will apply both approaches and compare the performance of the two resulting models. 
 First, I will split the dataset: 80% of observations will be used to train both models (training dataset) and the remaining 20% will serve as a validation set.
 Emergency surgery is a binary outcome. Model discrimination will be evaluated using AUC, sensitivity and specificity and a calibration plot comparing predicted probability and observed rates across deciles of predicted risk.
+
+Upon exploratory analysis of the data, there were only 22 patients who required emergency surgery. This rare outcome in this dataset will be hard to predict. Therefore, I changed my outcome that I will predict to admission to the hospital (or death, or transfer to another hospital) compared to discharge home using the same two approaches as detailed above.
+
 
 # Results
 - 6+ key plots or tables illustrating your two major analyses 
@@ -59,8 +61,85 @@ if (!require(pROC)){install.packages("pROC")}
 
 
 ```{r 0a}
-hw2.train <- read.sas7bdat("epi215_lab1_train.sas7bdat", debug=F)
-hw2.train$BMI <- (hw2.train$WEIGHT/100)/((hw2.train$HEIGHT/100)**2)
+library(readr)
+emergency <- read_delim("~/Library/Mobile Documents/com~apple~CloudDocs/Fall2/BST260/emergency.csv", 
+   delim = ";", escape_double = FALSE, trim_ws = TRUE)
+  
+#data cleaning/exploration 
+library(dplyr)
+# outcome
+## Disposition: 1 = Dischange, 2 = Admission to ward, 3 = Admission to ICU, 4 = Disharge, 5 = Transfer, 6 = Death, 7 = Surgery
+summary(as.factor(emergency$Disposition))
+#hist and provide histogram
+ggplot
+# binary outcome: discharge - disposition 1 of 4
+emergency$admission <- ifelse(emergency$Disposition == 1 | emergency$Disposition == 4, 0, 1)
+summary(as.factor(emergency$admission))
+
+# use as is
+## sex: 1 female, 2 male
+## age: continuous in years
+## mental: 1 = Alert, 2 = Verbal Response, 3 = Pain Response, 4 = Unresponsive
+## chief complaint: text
+## pain: yes=1, no = 0
+## SBP: systolic blood pressure
+## DBP: diastolic blood pressure
+## HR: heart rate
+## KTAS_RN: 1 = resuscitation, 2 = emergent, 3 = urgent, 4 = less urgent, 5 = non-urgent
+
+# delete
+## group, which ED - delete
+## patients number per hour - unclear, also should not affect emergency surgery
+## saturation - many missing, and available values range from 90 to 100, not very pathologic, no high predictive value to be expected
+emergency <- emergency |> select(-Group, -`Patients number per hour`, -Saturation, -KTAS_expert, -Error_group, -mistriage, -`KTAS duration_min`)
+
+#clean/rename
+emergency$sbp <- as.numeric(emergency$SBP)
+summary(emergency$sbp)
+emergency$dbp <- as.numeric(emergency$DBP)
+summary(emergency$dbp)
+emergency$hr <- as.numeric(emergency$HR)
+summary(emergency$hr)
+emergency$resp <- as.numeric(emergency$RR)
+summary(emergency$resp)
+emergency$temp <- as.numeric(emergency$BT)
+summary(emergency$temp)
+
+emergency <- emergency |> select(-SBP, -DBP, -HR, -RR, -BT)
+
+# recategorize
+##arrival mode: 1 = Walking, 2 = Public Ambulance, 3 = Private Vehicle, 4 = Private Ambulance, 5,6,7 = Other]
+## -> 1 = walking, 2 = ambulance, 3 = private vehicle, 4 = other
+emergency$arrival <- ifelse(emergency$`Arrival mode`==2 | emergency$`Arrival mode`==4, 2, emergency$`Arrival mode`)
+emergency$arrival <- ifelse(emergency$arrival==5 | emergency$arrival==6 | emergency$arrival==7, 4, emergency$arrival)
+summary(as.factor(emergency$arrival))
+
+## injury: 2=yes, 1=no -> 1 yes, 0 no
+emergency$injury <- ifelse(emergency$Injury==2, 1, 0)
+summary(as.factor(emergency$injury))
+
+emergency <- emergency |> select(-Injury, -`Arrival mode`)
+
+
+##NRS_pain: replace missing as 0, if they did not have pain
+emergency$NRS_pain <-  as.numeric(emergency$NRS_pain)
+emergency$NRS_pain <-  ifelse(is.na(emergency$NRS_pain) & emergency$Pain==0, 0, emergency$NRS_pain)
+summary(as.factor(emergency$NRS_pain))
+
+# generate additional out of existing predictors:
+## shock index: HR/SBP
+emergency$shock_index <- emergency$hr/emergency$sbp
+summary(emergency$shock_index)
+## shock: shock index > 1
+emergency$shock <- ifelse(emergency$shock_index > 1, 1, 0) 
+summary(as.factor(emergency$shock))
+
+## hyperventilation: respiratory rate > 25
+emergency$hyperventilation <- ifelse(emergency$resp > 25, 1, 0) 
+summary(as.factor(emergency$shock))
+
+## fever and hypothermia based on body temperature?
+
 ```
 
 
