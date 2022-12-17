@@ -240,9 +240,9 @@ cm_clinical_train08 <- confusionMatrix(ED.train$yhat_clin08, ED.train$admission,
 
 #performance parameters for different cutoffs
 rownames <- c("0.3","0.4","0.5", "0.6", "0.7", "0.8")
-Specificity <- c(cm_clinical_train03$byClass["Specificity"],cm_clinical_train04$byClass["Specificity"],cm_clinical_train05$byClass["Specificity"],cm_clinical_train06$byClass["Specificity"],cm_clinical_train07$byClass["Specificity"],cm_clinical_train08$byClass["Specificity"])
-Sensitivity <- c(cm_clinical_train03$byClass["Sensitivity"],cm_clinical_train04$byClass["Sensitivity"],cm_clinical_train05$byClass["Sensitivity"],cm_clinical_train06$byClass["Sensitivity"],cm_clinical_train07$byClass["Sensitivity"],cm_clinical_train08$byClass["Sensitivity"])
-Accuracy <- c(cm_clinical_train03$overall["Accuracy"], cm_clinical_train04$overall["Accuracy"],cm_clinical_train05$overall["Accuracy"], cm_clinical_train06$overall["Accuracy"], cm_clinical_train07$overall["Accuracy"], cm_clinical_train08$overall["Accuracy"])
+Specificity <- c(cm_clinical_train03$byClass["Specificity"], cm_clinical_train04$byClass["Specificity"], cm_clinical_train05$byClass["Specificity"], cm_clinical_train06$byClass["Specificity"], cm_clinical_train07$byClass["Specificity"], cm_clinical_train08$byClass["Specificity"])
+Sensitivity <- c(cm_clinical_train03$byClass["Sensitivity"], cm_clinical_train04$byClass["Sensitivity"], cm_clinical_train05$byClass["Sensitivity"], cm_clinical_train06$byClass["Sensitivity"], cm_clinical_train07$byClass["Sensitivity"], cm_clinical_train08$byClass["Sensitivity"])
+Accuracy <- c(cm_clinical_train03$overall["Accuracy"], cm_clinical_train04$overall["Accuracy"], cm_clinical_train05$overall["Accuracy"], cm_clinical_train06$overall["Accuracy"], cm_clinical_train07$overall["Accuracy"], cm_clinical_train08$overall["Accuracy"])
 Table_cutoff <- data.frame(row.names=rownames, Sensitivity, Specificity, Accuracy)
 # best trade-off between sensitvity and secificity: cutoff: 0.3
 #knitr::kable(Table_cutoff, caption = "Different cutoffs of predicted inpatient admission risk")
@@ -317,8 +317,8 @@ ED.test$yhat_ML <- as.factor(ED.test$yhat_ML)
 cm_ML_forest_test <- confusionMatrix(factor(ED.test$yhat_ML), factor(ED.test$admission), positive="1")
 
 rownames <- c("Specificity","Sensitivity","Accuracy")
-Clinical_model <- c(cm_clinical_test$byClass["Specificity"],cm_clinical_test$byClass["Sensitivity"],cm_clinical_test$overall["Accuracy"])
-Random_forest_model <- c(cm_ML_forest_test$byClass["Specificity"],cm_ML_forest_test$byClass["Sensitivity"], cm_ML_forest_test$overall["Accuracy"])
+Clinical_model <- c(cm_clinical_test$byClass["Specificity"], cm_clinical_test$byClass["Sensitivity"], cm_clinical_test$overall["Accuracy"])
+Random_forest_model <- c(cm_ML_forest_test$byClass["Specificity"], cm_ML_forest_test$byClass["Sensitivity"], cm_ML_forest_test$overall["Accuracy"])
 
 Table5 <- data.frame(row.names=rownames, Clinical_model, Random_forest_model)
 #knitr::kable(Table5,  caption = "Performance of both models in validation set", col.names = c("Clinical model", "Random forest"))
@@ -359,7 +359,6 @@ qplot(nodesize, acc,  main = "Fig. 4 - Tune of node size", xlab = "Node size", y
 \newpage
 
 ## Tables
-
 ```{r Table1, echo = FALSE, warning = FALSE, error = FALSE, message = FALSE, tidy=TRUE, fig.pos='H'}
 table1(~ Sex + Age + NRS_pain + KTAS_RN + shock + hyperventilation + hypertherm + arrival + injury + mental_status | admission, data=ED_complete_table, overall="Total", caption="Patient characteristics by discharge disposition")
 ```
