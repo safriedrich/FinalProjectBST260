@@ -4,27 +4,48 @@ output: pdf_document
 author: \textcolor{answercolor}{Sabine Friedrich}
 date:  12/15/2022
 header-includes: \definecolor{answercolor}{rgb}{0.27,0.51,0.71}
+ \usepackage{fvextra}
+  \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
 ---
-
-BST260 - Final project
-
-
-I will build two predictive models whose performance I will compare: 
-1. a prediction model based on clinical reasoning using logistic regression with a step-wise forward selection to refine the prediction model
-2. a machine learning model
 
 # Introduction
 
-The dataset that I will analyze was assembled by Korean investigators for a cross-sectional retrospective research study aiming to evaluate accuracy of triage in the emergency department by the Korean Triage and Acuity Scale. The original study report was published in 2019 (1) and the dataset was made available on kaggle.com where I encountered the dataset. 
-This is a tidy dataset including 1267 records of adult patients who were admitted to the emergency department (ED) at two different hospitals between October 2016 and September 2017. It includes a variable detailing the disposition of each patient upon discharge from the ED. Some patients may require emergency surgery and they will go from the ED straight to the operating theatre. For these patients, duration from admission to ED to start of the surgery may be crucial in influencing the risk of adverse outcomes. In some cases, minutes could be a decisive factor if a patient lives or dies. If we were able to identify these critical patients who require emergency surgery as early as possible, lives could potentially be saved. Early identification of these patient would allow for early alert of necessary providers such as anesthesia, surgeons and operating room staff and would allow to save time by getting necessary ressources ready early on such as allocation and preparation of the OR, blood products etc. 
-Therefore, the aim of this project was to identify predictors of requirement of emergency surgery among patients admitted to the ED. 
-The dataset includes information on the following potential predictors: age and sex of the patient, how the patient got to the hospital, if the patient has an injury, the chief complaint, patient's mental state, if the patient had pain and pain rating on numerical rating scale (NRS), measurements of blood pressure, heart rate, respiratory rate and body temeprature, diagnosis, nurses triage rating, length of stay in the ED.
+The dataset that I will analyze was assembled by Korean investigators for a cross-sectional retrospective research study aiming to evaluate accuracy of triage in the emergency department by the Korean Triage and Acuity Scale. The original study report was published in 2019 (1) and the dataset was made available on kaggle.com.
+This is a tidy dataset including 1267 records of adult patients who were admitted to the emergency department (ED) at two different hospitals between October 2016 and September 2017. It includes a variable detailing the disposition of each patient upon discharge from the ED. 
+My initial plan to predict emergency surgery aiming to identify patients who may require emergency surgery early in order to reduce the time until start of the surgical procedure. However, there were only 22 patients (1.7%) who required emergency surgery upon exploratory analysis (Fig. 1). 
+Accordingly, the aim of this project was adapted to predict inpatient admission (including mortality, or transfer to another hospital) in contrast to discharge home. The ability to predict hospital admission of ED patients may help guide and refine the triage process.
 
-To identify predictors and build a prediction model, one common approach is to preselect candidate predictors based on clinical reasoning and expertise and then use an automated selection process to build and refine a regression model. Another approach is to apply machine learning techniques. I will apply both approaches and compare the performance of the two resulting models. 
-First, I will split the dataset: 80% of observations will be used to train both models (training dataset) and the remaining 20% will serve as a validation set.
-Emergency surgery is a binary outcome. Model discrimination will be evaluated using AUC, sensitivity and specificity and a calibration plot comparing predicted probability and observed rates across deciles of predicted risk.
+```{r 1 - Data exploration, appendix= TRUE, echo = FALSE, warning = FALSE, error = FALSE, message = FALSE, tidy=TRUE}
+#read in data
+library(readr)
+emergency <- read_delim("~/Library/Mobile Documents/com~apple~CloudDocs/Fall2/BST260/emergency.csv", 
+   delim = ";", escape_double = FALSE, trim_ws = TRUE)
+  
+#data exploration 
+library(dplyr)
+library(ggplot2)
+# outcome
+## Disposition: 1 = Discharge, 2 = Admission to ward, 3 = Admission to ICU, 4 = Discharge, 5 = Transfer, 6 = Death, 7 = Surgery
+summary(as.factor(emergency$Disposition))
+emergency$Disposition <- as.factor(ifelse(emergency$Disposition == 1 | emergency$Disposition == 4, 1, emergency$Disposition))
+summary(emergency$Disposition)
 
-Upon exploratory analysis of the data, there were only 22 patients who required emergency surgery. This rare outcome in this dataset will be hard to predict. Therefore, I changed my outcome that I will predict to admission to the hospital (or death, or transfer to another hospital) compared to discharge home using the same two approaches as detailed above.
+#hist and provide histogram
+label <- c("Discharge home", "Admission to ward", "Admission to ICU", "Transfer", "Died", "Emergency Surgery")
+emergency$disposition <- factor(emergency$Disposition, levels = c(1, 2, 3, 5, 6, 7), labels = label)
+emergency |> ggplot() + geom_bar(aes(disposition)) + xlab("Patient disposition") + ylab("Frequency") + ggtitle("Fig 1. Distribution of disposition location from ED") + scale_x_discrete(guide = guide_axis(n.dodge=2))
+# binary outcome: discharge - disposition 1 of 4
+emergency$admission <- ifelse(emergency$Disposition == 1 | emergency$Disposition == 4, 0, 1)
+summary(as.factor(emergency$admission))
+```
+
+To identify predictors of inpatient admission, I will compare two approaches: 
+
+- Clinical approach: pre-select candidate predictors based on clinical reasoning and expertise and then use an automated selection process to build and refine a regression model
+- Machine learning approach: 
+
+
+Model discrimination will be evaluated using overall accuracy, sensitivity, specificity and AUC. Model calibration will be assessed using a calibration plot comparing predicted probability and observed rates across deciles of predicted risk.
 
 
 # Results
@@ -32,49 +53,8 @@ Upon exploratory analysis of the data, there were only 22 patients who required 
 guide the reader through your analysis and describe what each plot or table is showing, and how it relates to the central question you are trying to ask
 
 
-# Conclusion
-Summary of your question, methods and results
-Additional topics can include:
-Was your analysis successful? Why or why not?
-What would you do if you had more time?
-
-
-# References
-## Data source: https://www.kaggle.com/datasets/ilkeryildiz/emergency-service-triage-application
-## Original analysis: https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0216972
-
-
-# Appendix
-## Figures
-
-##Tables
-
-## Code
-
-
-```{r 0, message=F}
-# Install & load packages
-if (!require(sas7bdat)){install.packages("sas7bdat")}
-if (!require(pROC)){install.packages("pROC")}
-```  
-
-
-
-```{r 0a}
-library(readr)
-emergency <- read_delim("~/Library/Mobile Documents/com~apple~CloudDocs/Fall2/BST260/emergency.csv", 
-   delim = ";", escape_double = FALSE, trim_ws = TRUE)
-  
-#data cleaning/exploration 
-library(dplyr)
-# outcome
-## Disposition: 1 = Dischange, 2 = Admission to ward, 3 = Admission to ICU, 4 = Disharge, 5 = Transfer, 6 = Death, 7 = Surgery
-summary(as.factor(emergency$Disposition))
-#hist and provide histogram
-ggplot
-# binary outcome: discharge - disposition 1 of 4
-emergency$admission <- ifelse(emergency$Disposition == 1 | emergency$Disposition == 4, 0, 1)
-summary(as.factor(emergency$admission))
+```{r 2 - Data cleaning, appendix = TRUE, echo = FALSE, warning = FALSE, error = FALSE, message = FALSE}
+##data cleaning
 
 # use as is
 ## sex: 1 female, 2 male
@@ -138,56 +118,200 @@ summary(as.factor(emergency$shock))
 emergency$hyperventilation <- ifelse(emergency$resp > 25, 1, 0) 
 summary(as.factor(emergency$shock))
 
-## fever and hypothermia based on body temperature?
+#fix some column_names
+emergency$ED_diagnosis <- emergency$`Diagnosis in ED`
+emergency$ED_LOS_min <- emergency$`Length of stay_min`
+emergency$chief_complaint <- emergency$Chief_complain
+emergency$mental_status <- emergency$Mental
+emergency$pain_yn <- emergency$Pain
+
+## fever based on body temperature?
+emergency$hypertherm <- ifelse(emergency$temp > 37.5 & !is.na(emergency$temp), 1, 0)
+emergency <- emergency |> select(-`Diagnosis in ED`, -`Length of stay_min`, -Chief_complain, -Mental, -Pain)
+
+## create a complete case cohort -> drop anyone with any missings as all variables kept in the dataset will be used for machine learning approach
+ED_complete <- na.omit(emergency)
+```
+All cases with any missing values for potential predictors were removed and a total of 1228 cases remained in the complete case cohort. This cohort was split into a training dataset (80% of observations) and a validation set (remaining 20%).
+
+```{r 4 - Data split, appendix = TRUE, echo = FALSE, warning = FALSE, error = FALSE, message = FALSE}
+#creating a validation set with 20% of data
+smp_size <- floor(0.80 * nrow(ED_complete))
+
+## set the seed 
+set.seed(2404)
+train_ind <- sample(seq_len(nrow(ED_complete)), size = smp_size)
+
+ED.train <- ED_complete[train_ind, ]
+ED.test <- ED_complete[-train_ind, ]
+
+#create table with inpatient admission rate for the whole dataset, training and validation model
+# check outcome in separated sets
+addmargins(table(as.factor(ED_complete$admission))); prop.table(table(as.factor(ED_complete$admission)))
+# full dataset: patients with hearing difficulty: 1341/8798 (15.24%)
+addmargins(table(as.factor(ED.train$admission))); prop.table(table(as.factor(ED.train$admission)))
+# training sample: patients with hearing difficulty: 1007/6598 (15.26%)
+
 
 ```
 
 
-```{r 0b}
-hw2.train$flagmiss <- ifelse(rowSums(is.na(hw2.train[c("SMOKR","EMPHYS","HDL","AGE",
-                                                       "BMI","PULSE","sbp")]))==0, 0, 1)
-addmargins(table(hw2.train$flagmiss, hw2.train$DIAB))
-# -> 122 complete cases with T2DM and 3860 complete cases without T2DM
-table(hw2.train$DIAB)
-# 177 with and 4955 without T2DM, out of 5132
-table(hw2.train$flagmiss)
-#3982 complete cases, 1150 with missing for specified variables
+```{r 5 - Clinician model, appendix = TRUE, echo = FALSE, warning = FALSE, error = FALSE, message = FALSE}
+#training the clinician model: sex, age, NRS_pain, KTAS_RN, arrival, injury, shock, hyperventilation, mental status, hyperthermia/fever
+library(caret)
+#create a table displaying characteristics by outcome including the preselected variables
+
+#stepwise forward regression with AIC as criterion
+library(MASS)
+Fitall.tr <- glm(admission ~ as.factor(Sex) + Age + NRS_pain + KTAS_RN + as.factor(arrival) + injury + shock + hyperventilation + mental_status + hypertherm, family="binomial", data= ED.train)
+
+Fitstart <- glm(admission ~ 1, family="binomial", data= ED.train)
+
+set.seed(2024)
+m_clin <- stepAIC(Fitstart, scope=formula(Fitall.tr), direction="forward", k=2)
+summary(m_clin)
+
+#aaply to validation set
+ED.train$phat_clin <- predict(m_clin, type="response", newdata=ED.train)
+ED.test$phat_clin <- predict(m_clin, type="response", newdata=ED.test)
+
+#Calibration Plot -training set
+##create risk deciles on predicted risk
+cuts <- quantile(ED.train$phat_clin, prob=c(.1,.2,.3,.4,.5,.6,.7,.8,.9), na.rm=T)
+ED.train$risk_decile <-cut(ED.train$phat_clin, breaks=c(0, cuts, 1))
+dec<-c(1:10) #for plot
+#observed proportion of difficult hearing in risk deciles
+t1.train<-table(ED.train$risk_decile, ED.train$admission)
+addmargins(t1.train) 
+t2.train <- prop.table(t1.train, 1)
+obs.train <- t2.train[,2] #for plot
+#mean predicted risk in risk deciles
+deciles.train <- ED.train %>% group_by(risk_decile) %>% summarise(mean=mean(phat_clin))
+pred.train <- deciles.train$mean #for plot
+cali_train<-data.frame(dec, obs.train, pred.train) # for plot
+ggplot(cali_train, aes(x=obs.train, y=pred.train)) + geom_point(size=2) + xlab("Observed Inpatient Admission Risk") + ylab("Predicted Risk") + ggtitle("Reliability Plot - Training Set") + theme(plot.title = element_text(hjust = 0.5)) + geom_abline(intercept = 0, slope = 1, color="grey")
+
+#Calibration Plot -validation set
+##create risk deciles on predicted risk
+cuts <- quantile(ED.test$phat_clin, prob=c(.1,.2,.3,.4,.5,.6,.7,.8,.9), na.rm=T)
+ED.test$risk_decile <-cut(ED.test$phat_clin, breaks=c(0, cuts, 1))
+dec<-c(1:10) #for plot
+#observed proportion of difficult hearing in risk deciles
+t1.test<-table(ED.test$risk_decile, ED.test$admission)
+addmargins(t1.test) 
+t2.test <- prop.table(t1.test, 1)
+obs.test <- t2.test[,2] #for plot
+#mean predicted risk in risk deciles
+deciles.test <- ED.test %>% group_by(risk_decile) %>% summarise(mean=mean(phat_clin))
+pred.test <- deciles.test$mean #for plot
+cali_test<-data.frame(dec, obs.test, pred.test) # for plot
+ggplot(cali_test, aes(x=obs.test, y=pred.test)) + geom_point(size=2) + xlab("Observed Inpatient Admission Risk") + ylab("Predicted Risk") + ggtitle("Reliability Plot - Training Set") + theme(plot.title = element_text(hjust = 0.5)) + geom_abline(intercept = 0, slope = 1, color="grey")
+
+#AUC to find good cutoff for predicting binary outcome based on predicted risk
+library(pROC)
+roccurve.train<- roc(ED.train$admission ~ ED.train$phat_clin); roccurve.train 
+plot(roccurve.train, legacy.axes=T, main="ROC curve - Training Set", col="blue")
+
+roccurve.test <- roc(ED.test$admission ~ ED.test$phat_clin); roccurve.train 
+plot(roccurve.test, legacy.axes=T, main="ROC curve - Test Set", col="blue")
+
+
+#check sensitivity and specificity for different cutoffs of predicted risk in training set
+ED.train$admission <- as.factor(ED.train$admission)
+## 0.3
+ED.train$yhat_clin03 <- as.factor(ifelse(ED.train$phat_clin > 0.3, 1, 0))
+cm_clinical_train03 <- confusionMatrix(ED.train$yhat_clin03, ED.train$admission, positive="1")
+## 0.4
+ED.train$yhat_clin04 <- as.factor(ifelse(ED.train$phat_clin > 0.4, 1, 0))
+cm_clinical_train04 <- confusionMatrix(ED.train$yhat_clin04, ED.train$admission, positive="1")
+## 0.5
+ED.train$yhat_clin05 <- as.factor(ifelse(ED.train$phat_clin > 0.5, 1, 0))
+cm_clinical_train05 <- confusionMatrix(ED.train$yhat_clin05, ED.train$admission, positive="1")
+##0.6
+ED.train$yhat_clin06 <- as.factor(ifelse(ED.train$phat_clin > 0.6, 1, 0))
+cm_clinical_train06 <- confusionMatrix(ED.train$yhat_clin06, ED.train$admission, positive="1")
+##0.7
+ED.train$yhat_clin07 <- as.factor(ifelse(ED.train$phat_clin > 0.7, 1, 0))
+cm_clinical_train07 <- confusionMatrix(ED.train$yhat_clin07, ED.train$admission, positive="1")
+##0.8
+ED.train$yhat_clin08 <- as.factor(ifelse(ED.train$phat_clin > 0.8, 1, 0))
+cm_clinical_train08 <- confusionMatrix(ED.train$yhat_clin08, ED.train$admission, positive="1")
+
+# best trade-off between sensitvity and secificity: cutoff: 0.3
+
+#performance parameters for different cutoffs
+rownames <- c("0.3","0.4","0.5", "0.6", "0.7", "0.8")
+Specificity <- c(cm_clinical_train03$byClass["Specificity"],cm_clinical_train04$byClass["Specificity"],cm_clinical_train05$byClass["Specificity"],cm_clinical_train06$byClass["Specificity"],cm_clinical_train07$byClass["Specificity"],cm_clinical_train08$byClass["Specificity"])
+Sensitivity <- c(cm_clinical_train03$byClass["Sensitivity"],cm_clinical_train04$byClass["Sensitivity"],cm_clinical_train05$byClass["Sensitivity"],cm_clinical_train06$byClass["Sensitivity"],cm_clinical_train07$byClass["Sensitivity"],cm_clinical_train08$byClass["Sensitivity"])
+Accuracy <- c(cm_clinical_train03$overall["Accuracy"], cm_clinical_train04$overall["Accuracy"],cm_clinical_train05$overall["Accuracy"], cm_clinical_train06$overall["Accuracy"], cm_clinical_train07$overall["Accuracy"], cm_clinical_train08$overall["Accuracy"])
+Table_cutoff <- data.frame(row.names=rownames, Sensitivity, Specificity, Accuracy)
+# best trade-off between sensitvity and secificity: cutoff: 0.3
+
+#Accuracy in test set
+
+ED.test$yhat_clin03 <- as.factor(ifelse(ED.test$phat_clin > 0.3, 1, 0))
+ED.test$admission <- as.factor(ED.test$admission)
+cm_clinical_test <- confusionMatrix(ED.test$yhat_clin03, ED.test$admission, positive="1")
+cm_clinical_test
+```
+
+```{r 6 Machine Learning Model, appendix  = TRUE, echo = FALSE, warning = FALSE, error = FALSE, message = FALSE}
+#random forest
+detach("package:MASS", unload = TRUE)
+library(randomForest)
+
+y_train <- ED.train$admission
+x_train <- ED.train |> select(Sex, Age, NRS_pain, KTAS_RN, sbp, dbp, hr, resp, temp, arrival, injury, shock_index, mental_status) 
+
+#tuning nodesize
+set.seed(2404) 
+nodesize <- seq(1, 50, 5)
+acc <- sapply(nodesize, function(ns){
+  train(data.frame(x_train), factor(y_train), method = "rf", 
+               tuneGrid = data.frame(mtry = 5),
+               nodesize = ns)$results$Accuracy
+})
+qplot(nodesize, acc)
+
+
+#fit random forest model
+set.seed(2333)
+fit_rf <- randomForest(data.frame(x_train), factor(y_train), 
+                       mtry = 5, nodesize = nodesize[which.max(acc)])
+
+#random forest model performance in internal validation set
+set.seed(2134)
+ED.train$yhat_ML <- predict(fit_rf, type="response", newdata=ED.train)
+ED.test$yhat_ML <- predict(fit_rf, type="response", newdata=ED.test)
+
+#Accuracy in test set
+ED.test$yhat_ML <- as.factor(ED.test$yhat_ML)
+cm_ML_forest_test <- confusionMatrix(factor(ED.test$yhat_ML), factor(ED.test$admission), positive="1")
+cm_ML_forest_test
 ```
 
 
-```{r 1}
-#includes those with missing data -> # 177 with and 4955 without T2DM, out of 5132 (observed)
-m1 <- glm(DIAB ~ 1, data=hw2.train, family="binomial"); summary(m1)
-addmargins(table(hw2.train$DIAB))
-```
+# Conclusion
+Summary of your question, methods and results
+Additional topics can include:
+Was your analysis successful? Why or why not?
+What would you do if you had more time?
 
 
-\textcolor{answercolor}{ 
-$$\hat{p} = \frac{e^{\hat{\beta_0} + \hat{\beta_1} x}}{1 + e^{\hat{\beta_0} + \hat{\beta_1} x}}$$
-For the intercept only logistic model: ${\hat{\beta_0}}= -3.33$ and therefore the calculated probability of having diabetes: $\hat{p} = \frac{e^{\hat{\beta_0}}} {1 + e^{\hat{\beta_0} } } =  0.034489568$}
+# References
+Data source: https://www.kaggle.com/datasets/ilkeryildiz/emergency-service-triage-application
+Original analysis: https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0216972
 
 
-\textcolor{answercolor}{177/5132 = 0.03448948 (3.45\%) - yes, this equals the calculated probability based on the intercept only model}
-
-
-```{r 2}
-#regression model m2
-m2 <- glm(DIAB ~ AGE + SMOKR + BMI, family="binomial", data=hw2.train)
-summary(m2)
-#calculating predicted probabilities based on m2
-hw2.train$p_s <- predict(m2, type="response", newdata=hw2.train)
-summary(hw2.train$p_s)
+# Appendix
+```{r ref.label=knitr::all_labels(appendix==TRUE), echo=FALSE, echo=TRUE}
 
 ```
 
 
 
-|     Model                  |     Sensitivity    |     FPF       |
-|----------------------------|--------------------|---------------|
-|     Simple (5% FPF)        |       0.1885       |     0.05      |
-|     Clinical (5% FPF)      |       0.2377       |     0.05      |
-|                            |                    |               |
-|     Simple (3% FPF)        |       0.1148       |     0.03      |
-|     Clinical (3% FPF)      |       0.1885       |     0.03      |
+
+
+
 
 
