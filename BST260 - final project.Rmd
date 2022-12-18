@@ -1,10 +1,13 @@
 ---
 title: "BST260 - Final project"
-output: pdf_document
-author: \textcolor{answercolor}{Sabine Friedrich}
-date:  12/15/2022
-header-includes: \definecolor{answercolor}{rgb}{0.27,0.51,0.71}
- \usepackage{fvextra}
+author: "\textcolor{answercolor}{Sabine Friedrich}"
+date: "12/15/2022"
+output:
+  github_document:
+    df_print: paged
+  html_document:
+    df_print: paged
+header-includes: \definecolor{answercolor}{rgb}{0.27,0.51,0.71} \usepackage{fvextra}
   \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
 ---
 
